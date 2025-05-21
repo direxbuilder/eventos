@@ -42,6 +42,7 @@
     <div class="container">
         <iframe 
             id="appFrame"
+            allow="clipboard-read; clipboard-write"
             class="responsive-iframe"
             src="https://script.google.com/macros/s/AKfycbwB5PJYIGd0PpxLXuZy_vQOpfdNy3a8Jn8bnQoux8b15X0cmCHB0sLEMujx12Rcdca1/exec"
             frameborder="0"
@@ -51,4 +52,16 @@
         ></iframe>
     </div>
 </body>
+<script>
+  const originalConsoleWarn = console.warn;
+  console.warn = function(...args) {
+    if (args.length > 0 && typeof args[0] === 'string' && 
+        (args[0].includes('Permissions-Policy') || 
+         args[0].includes('permission') ||
+         args[0].includes('Unrecognized feature'))) {
+      return;
+    }
+    originalConsoleWarn.apply(console, args);
+  };
+</script>
 </html>
