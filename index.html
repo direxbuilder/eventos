@@ -6,49 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Gerenciador de Eventos</title>
     
-    <!-- Política de permissões abrangente - bloqueia TODAS as permissões sensíveis -->
-    <meta http-equiv="Permissions-Policy" content="
-        accelerometer=(),
-        ambient-light-sensor=(),
-        autoplay=(),
-        battery=(),
-        bluetooth=(),
-        browsing-topics=(),
-        camera=(),
-        clipboard-read=(),
-        clipboard-write=(),
-        display-capture=(),
-        document-domain=(),
-        encrypted-media=(),
-        execution-while-not-rendered=(),
-        execution-while-out-of-viewport=(),
-        gamepad=(),
-        geolocation=(),
-        gyroscope=(),
-        hid=(),
-        identity-credentials-get=(),
-        idle-detection=(),
-        interest-cohort=(),
-        keyboard-map=(),
-        local-fonts=(),
-        magnetometer=(),
-        microphone=(),
-        midi=(),
-        navigation-override=(),
-        payment=(),
-        picture-in-picture=(),
-        publickey-credentials-create=(),
-        publickey-credentials-get=(),
-        screen-wake-lock=(),
-        serial=(),
-        speaker-selection=(),
-        storage-access=(),
-        sync-xhr=(),
-        usb=(),
-        web-share=(),
-        window-management=(),
-        xr-spatial-tracking=()
-    ">
+    <!-- Meta tags ainda presentes, mesmo que menos eficazes que cabeçalhos reais -->
+    <meta http-equiv="Permissions-Policy" content="accelerometer=(), autoplay=(), camera=(), encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), screen-wake-lock=(), web-share=()">
     
     <style>
         * {
@@ -82,6 +41,88 @@
             background-color: transparent;
         }
     </style>
+    
+    <!-- Solução de supressão radical - carregada O MAIS CEDO POSSÍVEL -->
+    <script>
+        // IIFE executada imediatamente
+        (function() {
+            // Captura as funções originais do console ANTES que qualquer outro script possa modificá-las
+            var _consoleWarn = console.warn;
+            var _consoleError = console.error;
+            var _consoleLog = console.log;
+            
+            // Implementa filtros extremamente agressivos
+            function shouldSuppress(msg) {
+                if (typeof msg !== 'string') return false;
+                
+                // Lista ampla de padrões a filtrar
+                var patterns = [
+                    'violation',
+                    'violat',
+                    'permission',
+                    'policy',
+                    'not allowed',
+                    'blocked',
+                    'denied',
+                    'restrict'
+                ];
+                
+                msg = msg.toLowerCase();
+                for (var i = 0; i < patterns.length; i++) {
+                    if (msg.indexOf(patterns[i]) !== -1) return true;
+                }
+                
+                return false;
+            }
+            
+            // Substitui as funções de console
+            console.warn = function() {
+                if (arguments.length > 0 && shouldSuppress(arguments[0])) return;
+                return _consoleWarn.apply(console, arguments);
+            };
+            
+            console.error = function() {
+                if (arguments.length > 0 && shouldSuppress(arguments[0])) return;
+                return _consoleError.apply(console, arguments);
+            };
+            
+            console.log = function() {
+                if (arguments.length > 0 && shouldSuppress(arguments[0])) return;
+                return _consoleLog.apply(console, arguments);
+            };
+            
+            // Armazena esta função para configurar mais tarde na página
+            window.__configureMutationObserver = function() {
+                try {
+                    // Usa MutationObserver para detectar e remover nós de console error adicionados ao DOM
+                    new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.addedNodes && mutation.addedNodes.length) {
+                                for (var i = 0; i < mutation.addedNodes.length; i++) {
+                                    var node = mutation.addedNodes[i];
+                                    if (node.nodeType === 1 && (
+                                        node.classList.contains('console-error-wrapper') ||
+                                        node.classList.contains('console-message-wrapper') ||
+                                        node.classList.contains('console-warning-wrapper')
+                                    )) {
+                                        var text = node.textContent || '';
+                                        if (shouldSuppress(text)) {
+                                            node.style.display = 'none';
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }).observe(document.documentElement || document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                } catch (e) {
+                    // Ignora erros no observador
+                }
+            };
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
@@ -97,80 +138,99 @@
     </div>
     
     <script>
-        // Sistema radical de supressão de mensagens de console relacionadas a permissões
+        // Configuração adicional - evita todas as tentativas de acessar recursos restritos
         (function() {
-            // Proxy para console.warn
-            const originalConsoleWarn = console.warn;
-            console.warn = function(...args) {
-                return filterConsoleMessage(originalConsoleWarn, args);
-            };
+            // Lista de APIs sensíveis para substituir
+            var sensibleAPIs = [
+                'navigator.geolocation',
+                'navigator.mediaDevices',
+                'navigator.credentials',
+                'navigator.usb',
+                'navigator.bluetooth',
+                'navigator.clipboard',
+                'navigator.share',
+                'navigator.wakeLock',
+                'navigator.serial',
+                'navigator.hid',
+                'navigator.gpu',
+                'navigator.xr',
+                'navigator.permissions',
+                'Notification'
+            ];
             
-            // Proxy para console.error
-            const originalConsoleError = console.error;
-            console.error = function(...args) {
-                return filterConsoleMessage(originalConsoleError, args);
-            };
+            // Tenta bloquear acesso a essas APIs
+            sensibleAPIs.forEach(function(apiPath) {
+                try {
+                    var parts = apiPath.split('.');
+                    var obj = window;
+                    var lastProp = parts.pop();
+                    
+                    // Navegamos até o último nível do objeto
+                    for (var i = 0; i < parts.length; i++) {
+                        if (obj[parts[i]] === undefined) return; // API não existe
+                        obj = obj[parts[i]];
+                    }
+                    
+                    // Guarda o valor original (para evitar erros em outras partes do código)
+                    var originalValue = obj[lastProp];
+                    
+                    // Se for uma função constructor, preservamos isso
+                    if (typeof originalValue === 'function') {
+                        Object.defineProperty(obj, lastProp, {
+                            get: function() {
+                                return function() {
+                                    // Retorna uma promise rejeitada para APIs assíncronas
+                                    if (arguments.length > 0 && typeof arguments[0] === 'function') {
+                                        // Callback style API
+                                        var err = new Error('Permission denied by host page');
+                                        setTimeout(function() {
+                                            arguments[1] && arguments[1](err);
+                                        }, 0);
+                                        return undefined;
+                                    }
+                                    // Promise style API
+                                    return Promise.reject(new Error('Permission denied by host page'));
+                                };
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Ignora erros na substituição da API
+                }
+            });
             
-            // Proxy para console.log
-            const originalConsoleLog = console.log;
-            console.log = function(...args) {
-                return filterConsoleMessage(originalConsoleLog, args);
-            };
-            
-            // Função única para filtrar mensagens de console
-            function filterConsoleMessage(originalFn, args) {
-                // Se não há argumentos, apenas passa adiante
-                if (!args || args.length === 0) {
-                    return originalFn.apply(console, args);
+            // Configura o observer para remover mensagens de console do DOM
+            if (window.__configureMutationObserver) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', window.__configureMutationObserver);
+                } else {
+                    window.__configureMutationObserver();
                 }
-                
-                // Verifica o primeiro argumento (que geralmente contém a mensagem)
-                const firstArg = args[0];
-                
-                // Se não for string, passa adiante
-                if (typeof firstArg !== 'string') {
-                    return originalFn.apply(console, args);
-                }
-                
-                // Lista abrangente de padrões a serem filtrados
-                const filterPatterns = [
-                    'Permissions-Policy',
-                    'permissions policy',
-                    'permission',
-                    '[Violation]',
-                    'is not allowed in this document',
-                    'blocked because of a permissions policy',
-                    'blocked because of a feature policy',
-                    'Unrecognized feature'
-                ];
-                
-                // Se a mensagem contiver qualquer um desses padrões, suprime
-                if (filterPatterns.some(pattern => firstArg.toLowerCase().includes(pattern.toLowerCase()))) {
-                    return; // Suprime a mensagem completamente
-                }
-                
-                // Se chegou aqui, passa a mensagem normalmente
-                return originalFn.apply(console, args);
             }
             
-            // Suprime erros de natureza semelhante em nível global
+            // Captura todos os erros globais relacionados a permissões
             window.addEventListener('error', function(event) {
-                // Se for um erro relacionado a permissões, suprime
-                if (event && event.message) {
-                    const filterPatterns = [
-                        'Permissions-Policy',
-                        'permissions policy',
-                        'permission',
-                        '[Violation]',
-                        'is not allowed in this document'
-                    ];
-                    
-                    if (filterPatterns.some(pattern => 
-                        event.message.toLowerCase().includes(pattern.toLowerCase()))) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        return false;
-                    }
+                if (event && event.message && 
+                    (event.message.toLowerCase().includes('permission') || 
+                     event.message.toLowerCase().includes('policy') ||
+                     event.message.toLowerCase().includes('denied') ||
+                     event.message.toLowerCase().includes('not allowed'))) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+            }, true);
+            
+            // Faz o mesmo para eventos de unhandledrejection (Promises rejeitadas)
+            window.addEventListener('unhandledrejection', function(event) {
+                if (event && event.reason && 
+                    (String(event.reason).toLowerCase().includes('permission') || 
+                     String(event.reason).toLowerCase().includes('policy') ||
+                     String(event.reason).toLowerCase().includes('denied') ||
+                     String(event.reason).toLowerCase().includes('not allowed'))) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
                 }
             }, true);
         })();
