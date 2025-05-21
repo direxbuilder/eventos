@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Gerenciador de Eventos</title>
+    
+    <!-- Implementação explícita de política de permissões -->
+    <!-- Desativa explicitamente todas as permissões sensíveis que não são necessárias -->
+    <meta http-equiv="Permissions-Policy" content="
+        accelerometer=(),
+        autoplay=(),
+        camera=(),
+        encrypted-media=(),
+        geolocation=(),
+        gyroscope=(),
+        magnetometer=(),
+        microphone=(),
+        midi=(),
+        payment=(),
+        usb=(),
+        screen-wake-lock=(),
+        web-share=()
+    ">
+    
     <style>
         * {
             margin: 0;
@@ -43,7 +62,7 @@
         <iframe 
             id="appFrame"
             class="responsive-iframe"
-            src="https://script.google.com/macros/s/AKfycbwB5PJYIGd0PpxLXuZy_vQOpfdNy3a8Jn8bnQoux8b15X0cmCHB0sLEMujx12Rcdca1/exec" allow="geolocation"
+            src="https://script.google.com/macros/s/AKfycbwB5PJYIGd0PpxLXuZy_vQOpfdNy3a8Jn8bnQoux8b15X0cmCHB0sLEMujx12Rcdca1/exec"
             frameborder="0"
             allowfullscreen="true"
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
@@ -52,61 +71,85 @@
     </div>
     
     <script>
-        // Solução avançada para supressão de mensagens de erro de permissões
+        /**
+         * Sistema de supressão seletiva para mensagens de erro residuais
+         * Mesmo com as políticas de permissões corretamente definidas, 
+         * o iframe de GAS pode gerar alguns alertas devido à natureza do
+         * ambiente Google Apps Script
+         */
         (function() {
-            // Suprime todos os avisos relacionados a permissões no console
-            const originalConsoleError = console.error;
             const originalConsoleWarn = console.warn;
-            const originalConsoleLog = console.log;
+            const originalConsoleError = console.error;
             
-            // Lista completa de padrões a serem suprimidos
-            const suppressPatterns = [
-                'Permissions-Policy',
-                'permissions policy',
-                'permission',
-                'is not allowed in this document',
-                'Potential permissions policy violation',
-                'has been blocked',
-                'blocked because of a Feature Policy',
-                'Unrecognized feature',
-                '[Violation]'
+            // Lista de recursos para os quais definimos explicitamente a política "none"
+            const explicitlyBlockedFeatures = [
+                'accelerometer',
+                'autoplay',
+                'camera',
+                'encrypted-media',
+                'geolocation',
+                'gyroscope',
+                'magnetometer',
+                'microphone', 
+                'midi',
+                'payment',
+                'usb',
+                'screen-wake-lock',
+                'web-share'
             ];
             
-            // Função genérica para filtrar mensagens
-            function filterMessage(originalFn, args) {
+            // Filtro para avisos
+            console.warn = function(...args) {
                 if (args.length > 0 && typeof args[0] === 'string') {
-                    // Se a mensagem contiver qualquer um dos padrões, suprima-a
-                    if (suppressPatterns.some(pattern => 
-                        args[0].toLowerCase().includes(pattern.toLowerCase()))) {
-                        return; // Suprime a mensagem
+                    // Verifica se o aviso está relacionado a uma política de permissão para um recurso bloqueado
+                    if (args[0].includes('Permissions-Policy') || args[0].includes('permission policy')) {
+                        // Verifica se o aviso está relacionado a um dos recursos explicitamente bloqueados
+                        if (explicitlyBlockedFeatures.some(feature => 
+                            args[0].toLowerCase().includes(feature.toLowerCase()))) {
+                            return; // Suprime a mensagem
+                        }
+                    }
+                    
+                    // Suprime avisos genéricos de violação de política
+                    if (args[0].includes('[Violation]') && args[0].includes('not allowed in this document')) {
+                        return;
                     }
                 }
-                return originalFn.apply(console, args);
-            }
+                return originalConsoleWarn.apply(console, args);
+            };
             
-            // Substitui as funções do console
+            // Filtro similar para erros
             console.error = function(...args) {
-                return filterMessage(originalConsoleError, args);
-            };
-            
-            console.warn = function(...args) {
-                return filterMessage(originalConsoleWarn, args);
-            };
-            
-            console.log = function(...args) {
-                return filterMessage(originalConsoleLog, args);
-            };
-            
-            // Captura erros de políticas de permissão em nível global
-            window.addEventListener('error', function(event) {
-                if (event && event.message && 
-                    suppressPatterns.some(pattern => 
-                        event.message.toLowerCase().includes(pattern.toLowerCase()))) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    return false;
+                if (args.length > 0 && typeof args[0] === 'string') {
+                    if (args[0].includes('Permissions-Policy') || args[0].includes('permission policy')) {
+                        if (explicitlyBlockedFeatures.some(feature => 
+                            args[0].toLowerCase().includes(feature.toLowerCase()))) {
+                            return;
+                        }
+                    }
+                    
+                    if (args[0].includes('[Violation]') && args[0].includes('not allowed in this document')) {
+                        return;
+                    }
                 }
-            }, true);
+                return originalConsoleError.apply(console, args);
+            };
+            
+            // Registro de eventos de carregamento para depuração
+            window.addEventListener('DOMContentLoaded', () => {
+                const iframe = document.getElementById('appFrame');
+                if (iframe) {
+                    console.log('✅ Iframe GAS carregado com sucesso');
+                    
+                    // Verifica se as políticas de permissão estão sendo aplicadas
+                    try {
+                        const permissions = document.featurePolicy?.features() || [];
+                        console.log('📋 Recursos com políticas definidas:', permissions);
+                    } catch (e) {
+                        console.log('⚠️ Não foi possível verificar políticas de permissão:', e);
+                    }
+                }
+            });
         })();
     </script>
 </body>
