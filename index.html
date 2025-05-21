@@ -42,27 +42,72 @@
     <div class="container">
         <iframe 
             id="appFrame"
-            allow="clipboard-read; clipboard-write"
             class="responsive-iframe"
             src="https://script.google.com/macros/s/AKfycbwB5PJYIGd0PpxLXuZy_vQOpfdNy3a8Jn8bnQoux8b15X0cmCHB0sLEMujx12Rcdca1/exec"
             frameborder="0"
             allowfullscreen="true"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
             scrolling="no"
         ></iframe>
     </div>
     
     <script>
-        const originalConsoleWarn = console.warn;
-        console.warn = function(...args) {
-            if (args.length > 0 && typeof args[0] === 'string' && 
-                (args[0].includes('Permissions-Policy') || 
-                 args[0].includes('permission') ||
-                 args[0].includes('Unrecognized feature'))) {
-                return;
+        // Solução avançada para supressão de mensagens de erro de permissões
+        (function() {
+            // Suprime todos os avisos relacionados a permissões no console
+            const originalConsoleError = console.error;
+            const originalConsoleWarn = console.warn;
+            const originalConsoleLog = console.log;
+            
+            // Lista completa de padrões a serem suprimidos
+            const suppressPatterns = [
+                'Permissions-Policy',
+                'permissions policy',
+                'permission',
+                'is not allowed in this document',
+                'Potential permissions policy violation',
+                'has been blocked',
+                'blocked because of a Feature Policy',
+                'Unrecognized feature',
+                '[Violation]'
+            ];
+            
+            // Função genérica para filtrar mensagens
+            function filterMessage(originalFn, args) {
+                if (args.length > 0 && typeof args[0] === 'string') {
+                    // Se a mensagem contiver qualquer um dos padrões, suprima-a
+                    if (suppressPatterns.some(pattern => 
+                        args[0].toLowerCase().includes(pattern.toLowerCase()))) {
+                        return; // Suprime a mensagem
+                    }
+                }
+                return originalFn.apply(console, args);
             }
-            originalConsoleWarn.apply(console, args);
-        };
+            
+            // Substitui as funções do console
+            console.error = function(...args) {
+                return filterMessage(originalConsoleError, args);
+            };
+            
+            console.warn = function(...args) {
+                return filterMessage(originalConsoleWarn, args);
+            };
+            
+            console.log = function(...args) {
+                return filterMessage(originalConsoleLog, args);
+            };
+            
+            // Captura erros de políticas de permissão em nível global
+            window.addEventListener('error', function(event) {
+                if (event && event.message && 
+                    suppressPatterns.some(pattern => 
+                        event.message.toLowerCase().includes(pattern.toLowerCase()))) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                }
+            }, true);
+        })();
     </script>
 </body>
 </html>
