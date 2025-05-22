@@ -6,43 +6,40 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Gerenciador de Eventos</title>
     
-    <!-- Script de supressão específica - executa o mais cedo possível -->
     <script>
         (function() {
-            // Captura as funções originais do console
+
             var originalConsoleError = console.error;
             var originalConsoleWarn = console.warn;
             var originalConsoleLog = console.log;
             
-            // Padrão exato que queremos filtrar
+
             var targetPattern = "[Violation] Potential permissions policy violation:";
-            
-            // Função de filtro
+
             function filterViolationMessages(originalFn, args) {
-                // Verifica se há argumentos
+
                 if (!args || args.length === 0) {
                     return originalFn.apply(console, args);
                 }
                 
-                // Verifica apenas o primeiro argumento (a mensagem)
+
                 var message = args[0];
                 
-                // Se não for string, apenas passa adiante
+      
                 if (typeof message !== 'string') {
                     return originalFn.apply(console, args);
                 }
-                
-                // Suprime APENAS se começar com o padrão exato
+              
                 if (message.indexOf(targetPattern) === 0) {
-                    // Não faz nada - suprime a mensagem
+                   
                     return;
                 }
                 
-                // Caso contrário, passa normalmente para a função original
+               
                 return originalFn.apply(console, args);
             }
             
-            // Substitui os métodos do console
+            
             console.error = function() {
                 return filterViolationMessages(originalConsoleError, arguments);
             };
